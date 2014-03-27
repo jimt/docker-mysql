@@ -2,7 +2,9 @@
 set -e
 
 chown -R mysql:mysql /var/lib/mysql
-mysql_install_db --user mysql > /dev/null
+# if the MYSQL dir hasn't been initialized, do so
+if [[ ! -f "/var/lib/mysql/mysql" ]]; then
+    mysql_install_db --user mysql > /dev/null
 
 MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-""}
 MYSQL_DATABASE=${MYSQL_DATABASE:-""}
@@ -21,6 +23,7 @@ FLUSH PRIVILEGES;
 GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
 UPDATE user SET password=PASSWORD("$MYSQL_ROOT_PASSWORD") WHERE user='root';
 EOF
+fi
 
 if [[ $MYSQL_DATABASE != "" ]]; then
     echo "CREATE DATABASE IF NOT EXISTS \`$MYSQL_DATABASE\` CHARACTER SET utf8 COLLATE utf8_general_ci;" >> $tfile
@@ -28,9 +31,9 @@ if [[ $MYSQL_DATABASE != "" ]]; then
     if [[ $MYSQL_USER != "" ]]; then
         echo "GRANT ALL ON \`$MYSQL_DATABASE\`.* to '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD';" >> $tfile
     fi
-fi
 
 /usr/sbin/mysqld --bootstrap --verbose=0 $MYSQLD_ARGS < $tfile
 rm -f $tfile
+fi
 
 exec /usr/sbin/mysqld $MYSQLD_ARGS
